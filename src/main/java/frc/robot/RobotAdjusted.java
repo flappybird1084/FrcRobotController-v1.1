@@ -20,7 +20,14 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.CANSparkLowLevel.MotorType;
 
-public class Robot extends TimedRobot {
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
+import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+
+public class RobotAdjusted extends TimedRobot {
   private DifferentialDrive m_myRobot;
   private Joystick m_leftStick;
   //private Joystick m_rightStick;
@@ -58,7 +65,16 @@ public class Robot extends TimedRobot {
 
   ArrayList<CANSparkMax> motors;
 
- 
+  // Define the locations of the swerve modules relative to the robot center
+  private final Translation2d m_frontLeftLocation = new Translation2d(0.5, 0.5);
+  private final Translation2d m_frontRightLocation = new Translation2d(0.5, -0.5);
+  private final Translation2d m_backLeftLocation = new Translation2d(-0.5, 0.5);
+  private final Translation2d m_backRightLocation = new Translation2d(-0.5, -0.5);
+
+  // Create the kinematics object
+  private final SwerveDriveKinematics m_kinematics = new SwerveDriveKinematics(
+      m_frontLeftLocation, m_frontRightLocation, m_backLeftLocation, m_backRightLocation);
+
    @Override
    public void robotInit() {
      /**
@@ -128,21 +144,41 @@ public class Robot extends TimedRobot {
     System.out.println(getAdjustedEncoderPosition(encoder));
   }
 
-   
+  public void swerveDrive(double forward, double strafe, double rotation) {
+    // Convert joystick inputs to chassis speeds
+    var chassisSpeeds = new ChassisSpeeds(forward, strafe, rotation);
+
+    // Calculate the desired states for each swerve module
+    SwerveModuleState[] moduleStates = m_kinematics.toSwerveModuleStates(chassisSpeeds);
+
+    // Normalize wheel speeds
+    SwerveDriveKinematics.desaturateWheelSpeeds(moduleStates, 1.0);
+
+    // Set each module's speed and angle
+    setModuleState(m_leftFrontDriveMotor, m_leftFrontTurningMotor, moduleStates[0]);
+    setModuleState(m_rightFrontDriveMotor, m_rightFrontTurningMotor, moduleStates[1]);
+    setModuleState(m_leftBackDriveMotor, m_leftBackTurningMotor, moduleStates[2]);
+    setModuleState(m_rightBackDriveMotor, m_rightBackTurningMotor, moduleStates[3]);
+  }
+
+  private void setModuleState(CANSparkMax driveMotor, CANSparkMax turningMotor, SwerveModuleState state) {
+    driveMotor.set(state.speedMetersPerSecond);
+    moveMotorToPosition(turningMotor, state.angle.getDegrees());
+  }
+
   @Override
   public void teleopPeriodic() {
-    if(m_leftStick.getRawButton(1)) {
+    if (m_leftStick.getRawButton(1)) {
       System.out.println("Resetting encoders");
       for (CANSparkMax motor : motors) {
         motor.getEncoder().setPosition(0);
       }
     }
-    
-    //m_myRobot.tankDrive(m_leftStick.getY(),m_leftStick.getX());
-    //m_myRobot.tankDrive(0.5, 0.5);
-    double leftStickAngle = Math.toDegrees(Math.atan2(m_leftStick.getY(), m_leftStick.getX()))+180;
-    moveMotorToPosition(m_leftBackTurningMotor, leftStickAngle);
 
-    //System.out.println(leftStickAngle);
+    double forward = -m_leftStick.getY();
+    double strafe = m_leftStick.getX();
+    double rotation = m_leftStick.getTwist(); // Assuming twist for rotation
+
+    swerveDrive(forward, strafe, rotation);
   }
 }
