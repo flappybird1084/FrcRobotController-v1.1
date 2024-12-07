@@ -7,6 +7,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
@@ -122,12 +123,14 @@ public class Robot extends TimedRobot {
 
 
    public void moveMotorToPosition(CANSparkMax motor, double targetPosition) {
+    PIDController pidController = new PIDController(0.1, 0.0, 0.0);
     //motor.getEncoder().setPosition(targetPosition);
     RelativeEncoder encoder = motor.getEncoder();
+
+    motor.set(pidController.calculate(encoder.getPosition(), targetPosition));
     // encoder.setPosition(0.5);
     System.out.println(getAdjustedEncoderPosition(encoder));
   }
-
    
   @Override
   public void teleopPeriodic() {

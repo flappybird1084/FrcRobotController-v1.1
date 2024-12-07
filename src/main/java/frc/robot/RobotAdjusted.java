@@ -20,6 +20,7 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.CANSparkLowLevel.MotorType;
 
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -138,8 +139,11 @@ public class RobotAdjusted extends TimedRobot {
 
 
    public void moveMotorToPosition(CANSparkMax motor, double targetPosition) {
+    PIDController pidController = new PIDController(0.1, 0.0, 0.0);
     //motor.getEncoder().setPosition(targetPosition);
     RelativeEncoder encoder = motor.getEncoder();
+
+    motor.set(pidController.calculate(encoder.getPosition(), targetPosition));
     // encoder.setPosition(0.5);
     System.out.println(getAdjustedEncoderPosition(encoder));
   }
