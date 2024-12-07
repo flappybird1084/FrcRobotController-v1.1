@@ -7,6 +7,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
@@ -19,14 +20,6 @@ import com.revrobotics.CANEncoder;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.CANSparkLowLevel.MotorType;
-
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 public class RobotAdjusted extends TimedRobot {
   private DifferentialDrive m_myRobot;
@@ -66,16 +59,7 @@ public class RobotAdjusted extends TimedRobot {
 
   ArrayList<CANSparkMax> motors;
 
-  // Define the locations of the swerve modules relative to the robot center
-  private final Translation2d m_frontLeftLocation = new Translation2d(0.5, 0.5);
-  private final Translation2d m_frontRightLocation = new Translation2d(0.5, -0.5);
-  private final Translation2d m_backLeftLocation = new Translation2d(-0.5, 0.5);
-  private final Translation2d m_backRightLocation = new Translation2d(-0.5, -0.5);
-
-  // Create the kinematics object
-  private final SwerveDriveKinematics m_kinematics = new SwerveDriveKinematics(
-      m_frontLeftLocation, m_frontRightLocation, m_backLeftLocation, m_backRightLocation);
-
+ 
    @Override
    public void robotInit() {
      /**
@@ -124,7 +108,7 @@ public class RobotAdjusted extends TimedRobot {
      motors.add(m_leftBackTurningMotor);
      motors.add(m_rightBackTurningMotor);
    
-     m_myRobot = new DifferentialDrive(m_leftFrontDriveMotor, m_rightFrontDriveMotor);
+     //m_myRobot = new DifferentialDrive(m_leftFrontDriveMotor, m_rightFrontDriveMotor);
    
      m_leftStick = new Joystick(0);
      //m_rightStick = new Joystick(1);
@@ -132,57 +116,49 @@ public class RobotAdjusted extends TimedRobot {
 
    public double getAdjustedEncoderPosition(RelativeEncoder encoder){
     double adjusted_angle = encoder.getPosition();
-    adjusted_angle*= TURNING_GEAR_RATIO;
-    adjusted_angle = adjusted_angle % 360;
+    // Remove the modulo operation to retain absolute encoder position
+    // adjusted_angle = adjusted_angle % 360;
     return adjusted_angle;
    }
 
 
-   public void moveMotorToPosition(CANSparkMax motor, double targetPosition) {
+   public void moveMotorToPosition(CANSparkMax motor, double targetAngle) {
     PIDController pidController = new PIDController(0.1, 0.0, 0.0);
-    //motor.getEncoder().setPosition(targetPosition);
     RelativeEncoder encoder = motor.getEncoder();
 
-    motor.set(pidController.calculate(encoder.getPosition(), targetPosition));
-    // encoder.setPosition(0.5);
-    System.out.println(getAdjustedEncoderPosition(encoder));
+    // Convert target angle to encoder units considering gear ratio
+    double targetPosition = targetAngle / TURNING_GEAR_RATIO;
+
+    // Get current absolute position
+    double currentPosition = getAdjustedEncoderPosition(encoder);
+
+    // Calculate the shortest path to the target position
+    double error = targetPosition - currentPosition;
+
+    // Normalize the error to the range [-half_range, half_range]
+    double range = 360.0 / TURNING_GEAR_RATIO;
+    double halfRange = range / 2.0;
+    error = (error + halfRange) % range - halfRange;
+
+    // Calculate PID output
+    double output = pidController.calculate(currentPosition, targetPosition);
+
+    motor.set(output);
+    System.out.println("Current Position: " + currentPosition + " | Target Position: " + targetPosition);
   }
-
-  public void swerveDrive(double forward, double strafe, double rotation) {
-    // Convert joystick inputs to chassis speeds
-    var chassisSpeeds = new ChassisSpeeds(forward, strafe, rotation);
-
-    // Calculate the desired states for each swerve module
-    SwerveModuleState[] moduleStates = m_kinematics.toSwerveModuleStates(chassisSpeeds);
-
-    // Normalize wheel speeds
-    SwerveDriveKinematics.desaturateWheelSpeeds(moduleStates, 1.0);
-
-    // Set each module's speed and angle
-    setModuleState(m_leftFrontDriveMotor, m_leftFrontTurningMotor, moduleStates[0]);
-    setModuleState(m_rightFrontDriveMotor, m_rightFrontTurningMotor, moduleStates[1]);
-    setModuleState(m_leftBackDriveMotor, m_leftBackTurningMotor, moduleStates[2]);
-    setModuleState(m_rightBackDriveMotor, m_rightBackTurningMotor, moduleStates[3]);
-  }
-
-  private void setModuleState(CANSparkMax driveMotor, CANSparkMax turningMotor, SwerveModuleState state) {
-    driveMotor.set(state.speedMetersPerSecond);
-    moveMotorToPosition(turningMotor, state.angle.getDegrees());
-  }
-
+   
   @Override
   public void teleopPeriodic() {
-    if (m_leftStick.getRawButton(1)) {
-      System.out.println("Resetting encoders");
-      for (CANSparkMax motor : motors) {
-        motor.getEncoder().setPosition(0);
-      }
+    if(m_leftStick.getRawButton(1)) {
+        System.out.println("Resetting encoders");
+        for (CANSparkMax motor : motors) {
+            motor.getEncoder().setPosition(0);
+            System.out.println("Encoder Position: " + motor.getEncoder().getPosition());
+        }
     }
-
-    double forward = -m_leftStick.getY();
-    double strafe = m_leftStick.getX();
-    double rotation = m_leftStick.getTwist(); // Assuming twist for rotation
-
-    swerveDrive(forward, strafe, rotation);
+    
+    double leftStickAngle = Math.toDegrees(Math.atan2(m_leftStick.getY(), m_leftStick.getX())) + 180;
+    moveMotorToPosition(m_leftFrontTurningMotor, leftStickAngle);
+    System.out.println("Desired Angle: " + (leftStickAngle % 360));
   }
 }
