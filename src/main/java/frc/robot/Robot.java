@@ -108,7 +108,7 @@ public class Robot extends TimedRobot {
      motors.add(m_leftBackTurningMotor);
      motors.add(m_rightBackTurningMotor);
    
-     m_myRobot = new DifferentialDrive(m_leftFrontDriveMotor, m_rightFrontDriveMotor);
+     //m_myRobot = new DifferentialDrive(m_leftFrontDriveMotor, m_rightFrontDriveMotor);
    
      m_leftStick = new Joystick(0);
      //m_rightStick = new Joystick(1);
@@ -134,17 +134,17 @@ public class Robot extends TimedRobot {
    
   @Override
   public void teleopPeriodic() {
-    if(m_leftStick.getRawButton(1)) {
-      System.out.println("Resetting encoders");
-      for (CANSparkMax motor : motors) {
-        motor.getEncoder().setPosition(0);
-      }
-    }
+    // if(m_leftStick.getRawButton(1)) {
+    //   System.out.println("Resetting encoders");
+    //   for (CANSparkMax motor : motors) {
+    //     motor.getEncoder().setPosition(0);
+    //   }
+    // }
     
     //m_myRobot.tankDrive(m_leftStick.getY(),m_leftStick.getX());
     //m_myRobot.tankDrive(0.5, 0.5);
     double leftStickAngle = Math.toDegrees(Math.atan2(m_leftStick.getY(), m_leftStick.getX()))+180;
-    moveMotorToPosition(m_leftBackTurningMotor, leftStickAngle);
+    moveMotorToPosition(m_leftBackTurningMotor, m_leftStick.getX());
 
     //System.out.println(leftStickAngle);
   }
