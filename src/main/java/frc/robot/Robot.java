@@ -116,7 +116,7 @@ public class Robot extends TimedRobot {
 
    public double getAdjustedEncoderPosition(RelativeEncoder encoder){
     double adjusted_angle = encoder.getPosition();
-    adjusted_angle*= TURNING_GEAR_RATIO;
+    //adjusted_angle*= 6.75;
     adjusted_angle = adjusted_angle % 360;
     return adjusted_angle;
    }
@@ -127,24 +127,28 @@ public class Robot extends TimedRobot {
     //motor.getEncoder().setPosition(targetPosition);
     RelativeEncoder encoder = motor.getEncoder();
 
-    motor.set(pidController.calculate(encoder.getPosition(), targetPosition));
+    targetPosition/= TURNING_GEAR_RATIO;
+
+    motor.set(pidController.calculate(getAdjustedEncoderPosition(encoder), targetPosition));
     // encoder.setPosition(0.5);
     System.out.println(getAdjustedEncoderPosition(encoder));
   }
    
   @Override
   public void teleopPeriodic() {
-    // if(m_leftStick.getRawButton(1)) {
-    //   System.out.println("Resetting encoders");
-    //   for (CANSparkMax motor : motors) {
-    //     motor.getEncoder().setPosition(0);
-    //   }
-    // }
+    if(m_leftStick.getRawButton(1)) {
+      System.out.println("Resetting encoders");
+      for (CANSparkMax motor : motors) {
+        motor.getEncoder().setPosition(0);
+        System.out.println("Encoder Position: " + motor.getEncoder().getPosition());
+      }
+    }
     
     //m_myRobot.tankDrive(m_leftStick.getY(),m_leftStick.getX());
     //m_myRobot.tankDrive(0.5, 0.5);
     double leftStickAngle = Math.toDegrees(Math.atan2(m_leftStick.getY(), m_leftStick.getX()))+180;
-    moveMotorToPosition(m_leftBackTurningMotor, m_leftStick.getX());
+    moveMotorToPosition(m_leftFrontTurningMotor,leftStickAngle%360);
+    System.out.println(leftStickAngle);
 
     //System.out.println(leftStickAngle);
   }
