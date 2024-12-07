@@ -117,17 +117,17 @@ public class RobotAdjusted extends TimedRobot {
    public double getAdjustedEncoderPosition(RelativeEncoder encoder){
     double adjusted_angle = encoder.getPosition();
     // Remove the modulo operation to retain absolute encoder position
-    // adjusted_angle = adjusted_angle % 360;
+    adjusted_angle = adjusted_angle *TURNING_GEAR_RATIO*2;
     return adjusted_angle;
    }
 
 
    public void moveMotorToPosition(CANSparkMax motor, double targetAngle) {
-    PIDController pidController = new PIDController(0.1, 0.0, 0.0);
+    PIDController pidController = new PIDController(0.005, 0.0, 0.0);
     RelativeEncoder encoder = motor.getEncoder();
 
     // Convert target angle to encoder units considering gear ratio
-    double targetPosition = targetAngle / TURNING_GEAR_RATIO;
+    double targetPosition = targetAngle;
 
     // Get current absolute position
     double currentPosition = getAdjustedEncoderPosition(encoder);
