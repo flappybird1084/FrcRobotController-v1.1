@@ -1,155 +1,175 @@
-/*----------------------------------------------------------------------------*/
-/* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*----------------------------------------------------------------------------*/
+// Copyright (c) FIRST and other WPILib contributors.
+// Open Source Software; you can modify and/or share it under the terms of
+// the WPILib BSD license file in the root directory of this project.
 
 package frc.robot;
 
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import java.io.File;
+import java.io.IOException;
+import swervelib.parser.SwerveParser;
 
-import java.util.ArrayList;
-import java.util.Collections;
+/**
+ * The VM is configured to automatically run this class, and to call the functions corresponding to each mode, as
+ * described in the TimedRobot documentation. If you change the name of this class or the package after creating this
+ * project, you must also update the build.gradle file in the project.
+ */
+public class Robot extends TimedRobot
+{
 
-import com.ctre.phoenix6.hardware.CANcoder;
-import com.revrobotics.CANEncoder;
-import com.revrobotics.CANSparkMax;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.CANSparkLowLevel.MotorType;
+  private static Robot   instance;
+  private        Command m_autonomousCommand;
 
-public class Robot extends TimedRobot {
-  private DifferentialDrive m_myRobot;
-  private Joystick m_leftStick;
-  //private Joystick m_rightStick;
-  
-  private CANSparkMax m_leftFrontDriveMotor;
-  private CANSparkMax m_rightFrontDriveMotor;
-  private CANSparkMax m_leftBackDriveMotor;
-  private CANSparkMax m_rightBackDriveMotor;
-  private CANSparkMax m_leftFrontTurningMotor;
-  private CANSparkMax m_rightFrontTurningMotor;
-  private CANSparkMax m_leftBackTurningMotor;
-  private CANSparkMax m_rightBackTurningMotor;
+  private RobotContainer m_robotContainer;
 
+  private Timer disabledTimer;
 
-  private static final int leftFrontDriveMotorID = 2;
-  private static final int rightFrontDriveMotorID = 4;
-  private static final int leftBackDriveMotorID = 8;
-  private static final int rightBackDriveMotorID = 6;
-  private static final int leftFrontTurningMotorID = 1;
-  private static final int rightFrontTurningMotorID = 3;
-  private static final int leftBackTurningMotorID = 7;
-  private static final int rightBackTurningMotorID = 5;
-
-  private static final int leftFrontCANCoderID = 11;
-  private static final int rightFrontCANCoderID = 12;
-  private static final int leftBackCANCoderID = 14;
-  private static final int rightBackCANCoderID = 13;
-
-  private static final CANcoder leftFrontTurningEncoder = new CANcoder(leftFrontCANCoderID);
-  private static final CANcoder rightFrontTurningEncoder = new CANcoder(rightFrontCANCoderID);
-  private static final CANcoder leftBackTurningEncoder = new CANcoder(leftBackCANCoderID);
-  private static final CANcoder rightBackTurningEncoder = new CANcoder(rightBackCANCoderID);
-
-  final double TURNING_GEAR_RATIO = 150/7;
-
-  ArrayList<CANSparkMax> motors;
-
- 
-   @Override
-   public void robotInit() {
-     /**
-      * SPARK MAX controllers are intialized over CAN by constructing a CANSparkMax object
-      * 
-      * The CAN ID, which can be configured using the SPARK MAX Client, is passed as the
-      * first parameter
-      * 
-      * The motor type is passed as the second parameter. Motor type can either be:
-      *  com.revrobotics.CANSparkLowLevel.MotorType.kBrushless
-      *  com.revrobotics.CANSparkLowLevel.MotorType.kBrushed
-      * 
-      * The example below initializes four brushless motors with CAN IDs 1 and 2. Change
-      * these parameters to match your setup
-      */
-     m_leftFrontDriveMotor = new CANSparkMax(leftFrontDriveMotorID, MotorType.kBrushless);
-     m_rightFrontDriveMotor = new CANSparkMax(rightFrontDriveMotorID, MotorType.kBrushless);
-     m_leftBackDriveMotor = new CANSparkMax(leftBackDriveMotorID, MotorType.kBrushless);
-     m_rightBackDriveMotor = new CANSparkMax(rightBackDriveMotorID, MotorType.kBrushless);
-     m_leftFrontTurningMotor = new CANSparkMax(leftFrontTurningMotorID, MotorType.kBrushless);
-     m_rightFrontTurningMotor = new CANSparkMax(rightFrontTurningMotorID, MotorType.kBrushless);
-     m_leftBackTurningMotor = new CANSparkMax(leftBackTurningMotorID, MotorType.kBrushless);
-     m_rightBackTurningMotor = new CANSparkMax(rightBackTurningMotorID, MotorType.kBrushless);
-   
-     /**
-      * The RestoreFactoryDefaults method can be used to reset the configuration parameters
-      * in the SPARK MAX to their factory default state. If no argument is passed, these
-      * parameters will not persist between power cycles
-      */
-     m_leftFrontDriveMotor.restoreFactoryDefaults();
-     m_rightFrontDriveMotor.restoreFactoryDefaults();
-     m_leftBackDriveMotor.restoreFactoryDefaults();
-     m_rightBackDriveMotor.restoreFactoryDefaults();
-     m_leftFrontTurningMotor.restoreFactoryDefaults();
-     m_rightFrontTurningMotor.restoreFactoryDefaults();
-     m_leftBackTurningMotor.restoreFactoryDefaults();
-     m_rightBackTurningMotor.restoreFactoryDefaults();
-
-     motors = new ArrayList<CANSparkMax>();
-     motors.add(m_leftFrontDriveMotor);
-     motors.add(m_rightFrontDriveMotor);
-     motors.add(m_leftBackDriveMotor);
-     motors.add(m_rightBackDriveMotor);
-     motors.add(m_leftFrontTurningMotor);
-     motors.add(m_rightFrontTurningMotor);
-     motors.add(m_leftBackTurningMotor);
-     motors.add(m_rightBackTurningMotor);
-   
-     //m_myRobot = new DifferentialDrive(m_leftFrontDriveMotor, m_rightFrontDriveMotor);
-   
-     m_leftStick = new Joystick(0);
-     //m_rightStick = new Joystick(1);
-   }
-
-   public double getAdjustedEncoderPosition(RelativeEncoder encoder){
-    double adjusted_angle = encoder.getPosition();
-    //adjusted_angle*= 6.75;
-    adjusted_angle = adjusted_angle % 360;
-    return adjusted_angle;
-   }
-
-
-   public void moveMotorToPosition(CANSparkMax motor, double targetPosition) {
-    PIDController pidController = new PIDController(0.1, 0.0, 0.0);
-    //motor.getEncoder().setPosition(targetPosition);
-    RelativeEncoder encoder = motor.getEncoder();
-
-    targetPosition/= TURNING_GEAR_RATIO;
-
-    motor.set(pidController.calculate(getAdjustedEncoderPosition(encoder), targetPosition));
-    // encoder.setPosition(0.5);
-    System.out.println(getAdjustedEncoderPosition(encoder));
+  public Robot()
+  {
+    instance = this;
   }
-   
-  @Override
-  public void teleopPeriodic() {
-    if(m_leftStick.getRawButton(1)) {
-      System.out.println("Resetting encoders");
-      for (CANSparkMax motor : motors) {
-        motor.getEncoder().setPosition(0);
-        System.out.println("Encoder Position: " + motor.getEncoder().getPosition());
-      }
-    }
-    
-    //m_myRobot.tankDrive(m_leftStick.getY(),m_leftStick.getX());
-    //m_myRobot.tankDrive(0.5, 0.5);
-    double leftStickAngle = Math.toDegrees(Math.atan2(m_leftStick.getY(), m_leftStick.getX()))+180;
-    moveMotorToPosition(m_leftFrontTurningMotor,leftStickAngle%360);
-    System.out.println(leftStickAngle);
 
-    //System.out.println(leftStickAngle);
+  public static Robot getInstance()
+  {
+    return instance;
+  }
+
+  /**
+   * This function is run when the robot is first started up and should be used for any initialization code.
+   */
+  @Override
+  public void robotInit()
+  {
+    // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
+    // autonomous chooser on the dashboard.
+    m_robotContainer = new RobotContainer();
+
+    // Create a timer to disable motor brake a few seconds after disable.  This will let the robot stop
+    // immediately when disabled, but then also let it be pushed more 
+    disabledTimer = new Timer();
+  }
+
+  /**
+   * This function is called every 20 ms, no matter the mode. Use this for items like diagnostics that you want ran
+   * during disabled, autonomous, teleoperated and test.
+   *
+   * <p>This runs after the mode specific periodic functions, but before LiveWindow and
+   * SmartDashboard integrated updating.
+   */
+  @Override
+  public void robotPeriodic()
+  {
+    // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
+    // commands, running already-scheduled commands, removing finished or interrupted commands,
+    // and running subsystem periodic() methods.  This must be called from the robot's periodic
+    // block in order for anything in the Command-based framework to work.
+    CommandScheduler.getInstance().run();
+  }
+
+  /**
+   * This function is called once each time the robot enters Disabled mode.
+   */
+  @Override
+  public void disabledInit()
+  {
+    m_robotContainer.setMotorBrake(true);
+    disabledTimer.reset();
+    disabledTimer.start();
+  }
+
+  @Override
+  public void disabledPeriodic()
+  {
+    if (disabledTimer.hasElapsed(Constants.DrivebaseConstants.WHEEL_LOCK_TIME))
+    {
+      m_robotContainer.setMotorBrake(false);
+      disabledTimer.stop();
+    }
+  }
+
+  /**
+   * This autonomous runs the autonomous command selected by your {@link RobotContainer} class.
+   */
+  @Override
+  public void autonomousInit()
+  {
+    m_robotContainer.setMotorBrake(true);
+    m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+
+    // schedule the autonomous command (example)
+    if (m_autonomousCommand != null)
+    {
+      m_autonomousCommand.schedule();
+    }
+  }
+
+  /**
+   * This function is called periodically during autonomous.
+   */
+  @Override
+  public void autonomousPeriodic()
+  {
+  }
+
+  @Override
+  public void teleopInit()
+  {
+    // This makes sure that the autonomous stops running when
+    // teleop starts running. If you want the autonomous to
+    // continue until interrupted by another command, remove
+    // this line or comment it out.
+    if (m_autonomousCommand != null)
+    {
+      m_autonomousCommand.cancel();
+    } else
+    {
+      CommandScheduler.getInstance().cancelAll();
+    }
+    m_robotContainer.setDriveMode();
+    m_robotContainer.setMotorBrake(true);
+  }
+
+  /**
+   * This function is called periodically during operator control.
+   */
+  @Override
+  public void teleopPeriodic()
+  {
+  }
+
+  @Override
+  public void testInit()
+  {
+    // Cancels all running commands at the start of test mode.
+    CommandScheduler.getInstance().cancelAll();
+    m_robotContainer.setDriveMode();
+  }
+
+  /**
+   * This function is called periodically during test mode.
+   */
+  @Override
+  public void testPeriodic()
+  {
+  }
+
+  /**
+   * This function is called once when the robot is first started up.
+   */
+  @Override
+  public void simulationInit()
+  {
+  }
+
+  /**
+   * This function is called periodically whilst in simulation.
+   */
+  @Override
+  public void simulationPeriodic()
+  {
   }
 }
